@@ -1,25 +1,44 @@
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::process;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 2 {
-        eprintln!("{:?}: file name not given", args[0]);
-        process::exit(1);
-    }
-
-    for i in 1..args.len() {
-        do_cat(&args[i]);
+        // eprintln!("{:?}: file name not given", args[0]);
+        // process::exit(1);
+        do_cat_stdin();
+    } else {
+        for i in 1..args.len() {
+            do_cat(&args[i]);
+        }
     }
 
     process::exit(0);
 }
 
 const BUFFER_SIZE: usize = 2048;
+
+fn do_cat_stdin() {
+    let mut buffer = [0; BUFFER_SIZE];
+
+    loop {
+        let n = match io::stdin().read(&mut buffer) {
+            Ok(len) => len,
+            Err(_) => panic!("couldn't read stdin"),
+        };
+
+        io::stdout().write(&buffer).unwrap();
+
+        // claen buffer
+        for i in 0..n {
+            buffer[i] = 0;
+        }
+    }
+}
 
 // open file associated with filepath, and then export the contents into stdout
 fn do_cat(path: &str) {
@@ -41,6 +60,11 @@ fn do_cat(path: &str) {
         }
 
         io::stdout().write(&buffer).unwrap();
+
+        // claen buffer
+        for i in 0..n {
+            buffer[i] = 0;
+        }
     }
 
     // file goes out of scope, and automatically file will be closed
