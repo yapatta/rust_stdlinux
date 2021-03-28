@@ -1,6 +1,5 @@
 use std::env;
 use std::fs::File;
-use std::io::prelude::*;
 use std::io::{self, Read, Write};
 use std::process;
 
@@ -24,6 +23,7 @@ const BUFFER_SIZE: usize = 2048;
 
 fn do_cat_stdin() {
     let mut buffer = [0; BUFFER_SIZE];
+    let mut befn: usize = 0;
 
     loop {
         let n = match io::stdin().read(&mut buffer) {
@@ -31,12 +31,14 @@ fn do_cat_stdin() {
             Err(_) => panic!("couldn't read stdin"),
         };
 
-        io::stdout().write(&buffer).unwrap();
-
-        // claen buffer
-        for i in 0..n {
+        // if n < befn, need to erase [n, befn)
+        for i in n..befn {
             buffer[i] = 0;
         }
+
+        io::stdout().write(&buffer).unwrap();
+
+        befn = n;
     }
 }
 
@@ -48,6 +50,7 @@ fn do_cat(path: &str) {
     };
 
     let mut buffer = [0; BUFFER_SIZE];
+    let mut befn: usize = 0;
 
     loop {
         let n = match fd.read(&mut buffer) {
@@ -59,12 +62,14 @@ fn do_cat(path: &str) {
             break;
         }
 
-        io::stdout().write(&buffer).unwrap();
-
-        // claen buffer
-        for i in 0..n {
+        // if n < befn, need to erase [n, befn)
+        for i in n..befn {
             buffer[i] = 0;
         }
+
+        io::stdout().write(&buffer).unwrap();
+
+        befn = n;
     }
 
     // file goes out of scope, and automatically file will be closed

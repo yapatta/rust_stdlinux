@@ -12,3 +12,8 @@ edition = "2018"
 name = "cat"
 path = "src/5/cat.rs"
 opt-level = 3
+
+[[bin]]
+name = "wcl"
+path = "src/5/wcl.rs"
+opt-level = 3
