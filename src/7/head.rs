@@ -32,7 +32,7 @@ fn main() {
     process::exit(0);
 }
 
-fn do_head(f: &mut BufRead, mut nlines: i32) {
+fn do_head(f: &mut dyn BufRead, mut nlines: i32) {
     let mut stdout = io::stdout();
     for byte in f.bytes() {
         let c = byte.unwrap();
