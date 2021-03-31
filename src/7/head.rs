@@ -2,7 +2,7 @@ use std::env;
 use std::fs::File;
 use std::io;
 use std::io::prelude::*;
-use std::io::BufReader;
+use std::io::{BufReader, BufWriter};
 use std::process;
 
 fn main() {
@@ -33,10 +33,10 @@ fn main() {
 }
 
 fn do_head(f: &mut dyn BufRead, mut nlines: i32) {
-    let mut stdout = io::stdout();
+    let mut buf_out = BufWriter::new(io::stdout());
     for byte in f.bytes() {
         let c = byte.unwrap();
-        stdout.write(&[c]).unwrap();
+        buf_out.write(&[c]).unwrap();
         if c == b'\n' {
             nlines -= 1;
             if nlines == 0 {
