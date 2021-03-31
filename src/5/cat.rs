@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::{self, Read, Write};
 use std::process;
 
+// syscall version
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -26,6 +27,7 @@ fn do_cat_stdin() {
     let mut befn: usize = 0;
 
     loop {
+        // syscall::read
         let n = match io::stdin().read(&mut buffer) {
             Ok(len) => len,
             Err(_) => panic!("couldn't read stdin"),
@@ -36,6 +38,7 @@ fn do_cat_stdin() {
             buffer[i] = 0;
         }
 
+        // syscall::write
         io::stdout().write(&buffer).unwrap();
 
         befn = n;
@@ -44,7 +47,7 @@ fn do_cat_stdin() {
 
 // open file associated with filepath, and then export the contents into stdout
 fn do_cat(path: &str) {
-    let mut fd = match File::open(path) {
+    let mut f = match File::open(path) {
         Ok(file) => file,
         Err(why) => panic!("couln't open {}: {}", path, why.to_string()),
     };
@@ -53,7 +56,8 @@ fn do_cat(path: &str) {
     let mut befn: usize = 0;
 
     loop {
-        let n = match fd.read(&mut buffer) {
+        // syscall::read
+        let n = match f.read(&mut buffer) {
             Ok(len) => len,
             Err(why) => panic!("couldn't read file {}: {}", path, why.to_string()),
         };
@@ -67,6 +71,7 @@ fn do_cat(path: &str) {
             buffer[i] = 0;
         }
 
+        // syscall::write
         io::stdout().write(&buffer).unwrap();
 
         befn = n;
