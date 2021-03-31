@@ -15,6 +15,11 @@ path = "src/5/wcl.rs"
 opt-level = 3
 
 [[bin]]
+name = "cat_buf"
+path = "src/6/cat_buf.rs"
+opt-level = 3
+
+[[bin]]
 name = "head"
 path = "src/7/head.rs"
 opt-level = 3
