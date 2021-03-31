@@ -18,3 +18,11 @@ opt-level = 3
 name = "head"
 path = "src/7/head.rs"
 opt-level = 3
+
+[[bin]]
+name = "head_opt"
+path = "src/7/head_opt.rs"
+opt-level = 1
+
+[dependencies]
+getopts = "0.2.21"

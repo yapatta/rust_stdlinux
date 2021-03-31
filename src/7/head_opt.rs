@@ -1,3 +1,5 @@
+use getopts;
+use getopts::Options;
 use std::env;
 use std::fs::File;
 use std::io;
@@ -8,19 +10,36 @@ use std::process;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() < 2 {
-        eprintln!("Usage: {:?} n [FILE...]", args[0]);
-        process::exit(1);
+    let mut opts = Options::new();
+    opts.optflag("h", "help", "print this help menu");
+    opts.optopt("n", "lines", "number of lines", "NAME");
+
+    let matches = match opts.parse(&args[1..]) {
+        Ok(m) => m,
+        Err(f) => {
+            panic!(f.to_string())
+        }
+    };
+
+    if matches.opt_present("h") {
+        println!("Usage: {:?} [-n LINES] [FILE...]", &args[0]);
+        process::exit(0);
     }
 
-    let nlines: i32 = args[1].parse().unwrap();
+    let nlines: i32 = match matches.opt_str("n") {
+        Some(n) => n.parse().unwrap(),
+        None => {
+            println!("Usage: {:?} [-n LINES] [FILE...]", &args[0]);
+            process::exit(1);
+        }
+    };
 
-    if args.len() == 2 {
+    if matches.free.is_empty() {
         let mut buf_file = BufReader::new(io::stdin());
         do_head(&mut buf_file, nlines);
     } else {
-        for i in 2..args.len() {
-            let f = match File::open(&args[i]) {
+        for i in 0..matches.free.len() {
+            let f = match File::open(&matches.free[i]) {
                 Ok(file) => file,
                 Err(why) => panic!("couln't open {}: {}", &args[i], why.to_string()),
             };
@@ -29,6 +48,7 @@ fn main() {
             do_head(&mut buf_file, nlines);
         }
     }
+
     process::exit(0);
 }
 
