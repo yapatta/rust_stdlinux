@@ -17,7 +17,8 @@ fn main() {
     let re = Regex::new(&args[1]).unwrap();
 
     if args.len() == 2 {
-        let mut buf_in = BufReader::new(io::stdin());
+        let stdin = io::stdin();
+        let mut buf_in = BufReader::new(stdin.lock());
         do_grep(&re, &mut buf_in);
     } else {
         for i in 2..args.len() {
@@ -34,7 +35,8 @@ fn main() {
 }
 
 fn do_grep(re: &Regex, f: &mut dyn BufRead) {
-    let mut buf_out = BufWriter::new(io::stdout());
+    let stdout = io::stdout();
+    let mut buf_out = BufWriter::new(stdout.lock());
     loop {
         let mut buf_in_string = String::new();
         let buf_len = match f.read_line(&mut buf_in_string) {
