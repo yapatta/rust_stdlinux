@@ -29,5 +29,12 @@ name = "head_opt"
 path = "src/7/head_opt.rs"
 opt-level = 1
 
+[[bin]]
+name = "grep"
+path = "src/8/grep.rs"
+opt-level = 1
+
+
 [dependencies]
 getopts = "0.2.21"
+regex = "1.4.5"
