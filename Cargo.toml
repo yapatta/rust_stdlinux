@@ -34,6 +34,10 @@ name = "grep"
 path = "src/8/grep.rs"
 opt-level = 1
 
+[[bin]]
+name = "ls"
+path = "src/10/ls.rs"
+opt-level = 1
 
 [dependencies]
 getopts = "0.2.21"
