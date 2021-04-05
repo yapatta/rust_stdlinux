@@ -1,7 +1,7 @@
 [package]
 name = "rust_stdlinux"
 version = "0.1.0"
-authors = ["yuziroppe <syani4732@gmail.com>"]
+authors = ["yuziroppe <yahata.dev@gmail.com>"]
 edition = "2018"
 
 [[bin]]
@@ -47,6 +47,26 @@ opt-level = 1
 [[bin]]
 name = "rmdir"
 path = "src/10/rmdir.rs"
+opt-level = 1
+
+[[bin]]
+name = "ln"
+path = "src/10/ln.rs"
+opt-level = 1
+
+[[bin]]
+name = "symlink"
+path = "src/10/symlink.rs"
+opt-level = 1
+
+[[bin]]
+name = "rm"
+path = "src/10/rm.rs"
+opt-level = 1
+
+[[bin]]
+name = "mv"
+path = "src/10/mv.rs"
 opt-level = 1
 
 [dependencies]
