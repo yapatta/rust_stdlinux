@@ -44,6 +44,11 @@ name = "mkdir"
 path = "src/10/mkdir.rs"
 opt-level = 1
 
+[[bin]]
+name = "rmdir"
+path = "src/10/rmdir.rs"
+opt-level = 1
+
 [dependencies]
 getopts = "0.2.21"
 regex = "1.4.5"
