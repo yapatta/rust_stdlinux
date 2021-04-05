@@ -16,6 +16,8 @@ fn main() {
             eprintln!("{:?}: some errors", why.to_string());
         }
     }
+
+    process::exit(0);
 }
 
 fn do_ls(path: &str) -> io::Result<()> {
