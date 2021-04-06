@@ -69,6 +69,16 @@ name = "mv"
 path = "src/10/mv.rs"
 opt-level = 1
 
+[[bin]]
+name = "stat"
+path = "src/10/stat.rs"
+opt-level = 1
+
+[[bin]]
+name = "chmod"
+path = "src/10/chmod.rs"
+opt-level = 1
+
 [dependencies]
 getopts = "0.2.21"
 regex = "1.4.5"
