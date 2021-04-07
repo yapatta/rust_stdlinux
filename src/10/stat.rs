@@ -21,5 +21,3 @@ fn main() {
 
     process::exit(0);
 }
-
-g
