@@ -41,11 +41,11 @@ fn do_tail(path: &str, n: usize) {
         Err(why) => panic!("couln't open {}: {}", path, why.to_string()),
     };
     let mut buf_f = BufReader::new(f);
-    let mut buf_str = String::new();
 
     let mut tails: VecDeque<String> = VecDeque::new();
 
     loop {
+        let mut buf_str = String::new();
         let num_bytes = buf_f
             .read_line(&mut buf_str)
             .unwrap_or_else(|why| panic!("error while reading file: {}", why.to_string()));
@@ -57,8 +57,8 @@ fn do_tail(path: &str, n: usize) {
         if tails.len() == n {
             tails.pop_front().unwrap();
         }
-        tails.push_back(buf_str.clone());
-        buf_str.clear();
+        // cloneするより所有権を移してしまうほうが早い
+        tails.push_back(buf_str);
     }
 
     let stdout = io::stdout();
