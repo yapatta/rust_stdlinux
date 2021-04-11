@@ -29,7 +29,7 @@ fn main() {
     };
 
     for i in 0..matches.free.len() {
-        do_tail(&matches.free[i], nlines)
+        do_tail(&matches.free[i], nlines);
     }
 
     process::exit(0);
