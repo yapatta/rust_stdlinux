@@ -23,7 +23,7 @@ fn main() {
     let nlines: usize = match matches.opt_str("n") {
         Some(n) => n.parse().unwrap(),
         None => {
-            println!("Usage: {:?} [-n LINES] [FILE...]", &args[0]);
+            eprintln!("Usage: {:?} [-n LINES] [FILE...]", &args[0]);
             process::exit(1);
         }
     };
