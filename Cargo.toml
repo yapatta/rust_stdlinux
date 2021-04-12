@@ -89,7 +89,13 @@ name = "spawn"
 path = "src/12/spawn.rs"
 opt-level = 1
 
+[[bin]]
+name = "sh"
+path = "src/12/sh.rs"
+opt-level = 1
+
 [dependencies]
 getopts = "0.2.21"
 nix = "0.20.0"
 regex = "1.4.5"
+whoami = "1.1.2"
