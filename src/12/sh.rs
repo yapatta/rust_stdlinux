@@ -73,7 +73,8 @@ fn main() {
             let mut pipefd: Vec<(i32, i32)> = Vec::with_capacity(pipe_args.len());
             let mut children: Vec<Pid> = Vec::with_capacity(pipe_args.len());
 
-            for i in 0..pipe_args.len() - 1 {
+            // [0, pipe_args.len()-1]
+            for i in 0..pipe_args.len() {
                 if i != pipe_args.len() - 1 {
                     pipefd.push(pipe().unwrap()); //最後のコマンドでなければパイプを作成
                 }
@@ -83,6 +84,11 @@ fn main() {
                 {
                     ForkResult::Parent { child, .. } => {
                         children.push(child);
+
+                        if i > 0 {
+                            close(pipefd[i - 1].0).unwrap_or_else(|_| exit(1));
+                            close(pipefd[i - 1].1).unwrap_or_else(|_| exit(1));
+                        }
                     }
                     ForkResult::Child => {
                         let first_args = pipe_args[i].clone();
