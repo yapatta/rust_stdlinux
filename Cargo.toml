@@ -92,7 +92,7 @@ opt-level = 1
 [[bin]]
 name = "sh"
 path = "src/12/sh.rs"
-opt-level = 1
+opt-level = 3
 
 [dependencies]
 getopts = "0.2.21"
