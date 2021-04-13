@@ -1,3 +1,5 @@
+use nix::fcntl::{open, OFlag};
+use nix::sys::stat::Mode;
 use nix::sys::wait::{waitpid, WaitStatus};
 use nix::unistd::{close, dup2, execvp, fork, pipe, ForkResult, Pid};
 use std::ffi::CString;
@@ -7,15 +9,14 @@ use std::io::{BufReader, BufWriter};
 use std::process::exit;
 use whoami;
 
-enum RedirectCategory {
-    Append,
-    Overwrite,
+enum RedirectCategory<'a> {
+    Append(&'a str),
+    Overwrite(&'a str),
     None,
 }
 
 struct RedirectInfo<'a> {
-    path: &'a str,
-    category: RedirectCategory,
+    category: RedirectCategory<'a>,
 }
 
 fn main() {
@@ -68,7 +69,6 @@ fn parse_redirect_info<'a>(mut args: Vec<Vec<&'a str>>) -> (Vec<Vec<&'a str>>, R
         return (
             args,
             RedirectInfo {
-                path: "",
                 category: RedirectCategory::None,
             },
         );
@@ -80,8 +80,7 @@ fn parse_redirect_info<'a>(mut args: Vec<Vec<&'a str>>) -> (Vec<Vec<&'a str>>, R
             (
                 args,
                 RedirectInfo {
-                    path: path,
-                    category: RedirectCategory::Overwrite,
+                    category: RedirectCategory::Overwrite(path),
                 },
             )
         }
@@ -92,19 +91,39 @@ fn parse_redirect_info<'a>(mut args: Vec<Vec<&'a str>>) -> (Vec<Vec<&'a str>>, R
             (
                 args,
                 RedirectInfo {
-                    path: path,
-                    category: RedirectCategory::Append,
+                    category: RedirectCategory::Append(path),
                 },
             )
         }
         _ => (
             args,
             RedirectInfo {
-                path: "",
                 category: RedirectCategory::None,
             },
         ),
     }
+}
+
+fn redicrect(redirect_info: RedirectInfo) -> nix::Result<()> {
+    match redirect_info.category {
+        RedirectCategory::Overwrite(path) => {
+            let mode = Mode::S_IRWXU;
+            let flag = OFlag::O_CREAT | OFlag::O_WRONLY | OFlag::O_TRUNC;
+            let file = open(path, flag, mode)?;
+            dup2(file, 1)?;
+            close(file)?;
+        }
+        RedirectCategory::Append(path) => {
+            let mode = Mode::S_IRWXU;
+            let flag = OFlag::O_CREAT | OFlag::O_WRONLY | OFlag::O_APPEND;
+            let file = open(path, flag, mode)?;
+            dup2(file, 1)?;
+            close(file)?
+        }
+        RedirectCategory::None => {}
+    };
+
+    Ok(())
 }
 
 fn singlestage_pipe(pipe_args: Vec<Vec<&str>>, redirect_info: RedirectInfo) -> nix::Result<()> {
@@ -127,6 +146,8 @@ fn singlestage_pipe(pipe_args: Vec<Vec<&str>>, redirect_info: RedirectInfo) -> n
                 .iter()
                 .map(|arg| CString::new(*arg).unwrap())
                 .collect();
+
+            redicrect(redirect_info)?;
 
             match execvp(&command, &command_args) {
                 Ok(_) => exit(0),
@@ -177,6 +198,8 @@ fn multistage_pipe(pipe_args: Vec<Vec<&str>>, redirect_info: RedirectInfo) -> ni
                     dup2(pipefd[i - 1].0, 0).unwrap_or_else(|_| exit(1));
                     close(pipefd[i - 1].0).unwrap_or_else(|_| exit(1));
                     close(pipefd[i - 1].1).unwrap_or_else(|_| exit(1));
+
+                    redicrect(redirect_info)?;
                 } else {
                     // 0から取り出す(読み込み)
                     dup2(pipefd[i - 1].0, 0).unwrap_or_else(|_| exit(1));
