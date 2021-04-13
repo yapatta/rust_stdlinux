@@ -228,7 +228,7 @@ fn slice_vec_with_str<'a, 'b>(args: Vec<&'a str>, slice_key: &'b str) -> Vec<Vec
 
 fn slice_with_positions<T: Clone>(args: Vec<T>, mut positions: Vec<usize>) -> Vec<Vec<T>> {
     positions.push(args.len());
-    let mut poslr: Vec<(usize, usize)> = Vec::new();
+    let mut poslr: Vec<(usize, usize)> = Vec::with_capacity(positions.len());
     poslr.push((0, positions[0]));
 
     for i in 1..positions.len() {
@@ -238,7 +238,7 @@ fn slice_with_positions<T: Clone>(args: Vec<T>, mut positions: Vec<usize>) -> Ve
     poslr
         .iter()
         .map(|&(l, r)| {
-            let mut tmp = Vec::new();
+            let mut tmp = Vec::with_capacity(r - l);
             tmp.extend_from_slice(&args[l..r]);
             tmp
         })
