@@ -38,126 +38,131 @@ fn main() {
             break;
         }
 
-        let pipe_args = slice_vec_with_str(args);
+        let pipe_args = slice_vec_with_str(args, "|");
 
         if pipe_args.len() == 1 {
-            match unsafe { fork() }.unwrap_or_else(|why| panic!("fork failed: {}", why.to_string()))
-            {
-                ForkResult::Parent { child, .. } => {
-                    match waitpid(child, None)
-                        .unwrap_or_else(|why| panic!("waitpid failed: {}", why.to_string()))
-                    {
-                        WaitStatus::Exited(pid, status) => {
-                            println!("child (PID={}) finished: exit, status={}", pid, status);
-                        }
-                        WaitStatus::Signaled(pid, status, _) => {
-                            println!("child (PID={}) finished: signal, sig={}", pid, status);
-                        }
-                        _ => println!("abnoraml exit"),
-                    };
-                }
-                ForkResult::Child => {
-                    let first_args = pipe_args[0].clone();
-                    let command = CString::new(first_args[0].to_string()).unwrap();
-                    let command_args: Vec<CString> = first_args
-                        .iter()
-                        .map(|arg| CString::new(*arg).unwrap())
-                        .collect();
-
-                    match execvp(&command, &command_args) {
-                        Ok(_) => exit(0),
-                        Err(_) => {
-                            eprintln!("{}: command not found", first_args[0]);
-                            exit(-1);
-                        }
-                    };
-                }
-            };
+            singlestage_pipe(pipe_args).unwrap();
         } else {
-            let mut pipefd: Vec<(i32, i32)> = Vec::with_capacity(pipe_args.len());
-            let mut children: Vec<Pid> = Vec::with_capacity(pipe_args.len());
-
-            // [0, pipe_args.len()-1]
-            for i in 0..pipe_args.len() {
-                if i != pipe_args.len() - 1 {
-                    pipefd.push(pipe().unwrap()); //最後のコマンドでなければパイプを作成
-                }
-
-                match unsafe { fork() }
-                    .unwrap_or_else(|why| panic!("fork failed: {}", why.to_string()))
-                {
-                    ForkResult::Parent { child, .. } => {
-                        children.push(child);
-
-                        // 親側から実行済みのパイプを消す
-                        if i > 0 {
-                            close(pipefd[i - 1].0).unwrap_or_else(|_| exit(1));
-                            close(pipefd[i - 1].1).unwrap_or_else(|_| exit(1));
-                        }
-                    }
-                    ForkResult::Child => {
-                        let first_args = pipe_args[i].clone();
-                        let command = CString::new(first_args[0].to_string()).unwrap();
-                        let command_args: Vec<CString> = first_args
-                            .iter()
-                            .map(|arg| CString::new(*arg).unwrap())
-                            .collect();
-
-                        if i == 0 {
-                            dup2(pipefd[i].1, 1).unwrap_or_else(|_| exit(1));
-                            close(pipefd[i].0).unwrap_or_else(|_| exit(1));
-                            close(pipefd[i].1).unwrap_or_else(|_| exit(1));
-                        } else if i == pipe_args.len() - 1 {
-                            dup2(pipefd[i - 1].0, 0).unwrap_or_else(|_| exit(1));
-                            close(pipefd[i - 1].0).unwrap_or_else(|_| exit(1));
-                            close(pipefd[i - 1].1).unwrap_or_else(|_| exit(1));
-                        } else {
-                            // 0から取り出す(読み込み)
-                            dup2(pipefd[i - 1].0, 0).unwrap_or_else(|_| exit(1));
-                            close(pipefd[i - 1].0).unwrap_or_else(|_| exit(1));
-                            close(pipefd[i - 1].1).unwrap_or_else(|_| exit(1));
-
-                            // 1に入れる(書き込み)
-                            dup2(pipefd[i].1, 1).unwrap_or_else(|_| exit(1));
-                            close(pipefd[i].0).unwrap_or_else(|_| exit(1));
-                            close(pipefd[i].1).unwrap_or_else(|_| exit(1));
-                        }
-
-                        match execvp(&command, &command_args) {
-                            Ok(_) => exit(0),
-                            Err(_) => {
-                                eprintln!("{}: command not found", first_args[0]);
-                                exit(-1);
-                            }
-                        };
-                    }
-                };
-            }
-
-            for child in children {
-                match waitpid(child, None)
-                    .unwrap_or_else(|why| panic!("waitpid failed: {}", why.to_string()))
-                {
-                    WaitStatus::Exited(pid, status) => {
-                        println!("child (PID={}) finished: exit, status={}", pid, status);
-                    }
-                    WaitStatus::Signaled(pid, status, _) => {
-                        println!("child (PID={}) finished: signal, sig={}", pid, status);
-                    }
-                    _ => println!("abnoraml exit"),
-                };
-            }
+            multistage_pipe(pipe_args).unwrap();
         }
 
         input_string.clear();
     }
 }
 
-fn slice_vec_with_str(args: Vec<&str>) -> Vec<Vec<&str>> {
+fn singlestage_pipe(pipe_args: Vec<Vec<&str>>) -> nix::Result<()> {
+    match unsafe { fork() }? {
+        ForkResult::Parent { child, .. } => {
+            match waitpid(child, None)? {
+                WaitStatus::Exited(pid, status) => {
+                    println!("child (PID={}) finished: exit, status={}", pid, status);
+                }
+                WaitStatus::Signaled(pid, status, _) => {
+                    println!("child (PID={}) finished: signal, sig={}", pid, status);
+                }
+                _ => println!("abnoraml exit"),
+            };
+        }
+        ForkResult::Child => {
+            let first_args = pipe_args[0].clone();
+            let command = CString::new(first_args[0].to_string()).unwrap();
+            let command_args: Vec<CString> = first_args
+                .iter()
+                .map(|arg| CString::new(*arg).unwrap())
+                .collect();
+
+            match execvp(&command, &command_args) {
+                Ok(_) => exit(0),
+                Err(_) => {
+                    eprintln!("{}: command not found", first_args[0]);
+                    exit(1);
+                }
+            };
+        }
+    };
+
+    Ok(())
+}
+
+fn multistage_pipe(pipe_args: Vec<Vec<&str>>) -> nix::Result<()> {
+    let mut pipefd: Vec<(i32, i32)> = Vec::with_capacity(pipe_args.len());
+    let mut children: Vec<Pid> = Vec::with_capacity(pipe_args.len());
+
+    // [0, pipe_args.len()-1]
+    for i in 0..pipe_args.len() {
+        if i != pipe_args.len() - 1 {
+            pipefd.push(pipe()?); //最後のコマンドでなければパイプを作成
+        }
+
+        match unsafe { fork()? } {
+            ForkResult::Parent { child, .. } => {
+                children.push(child);
+
+                // 親側から実行済みのパイプを消す
+                if i > 0 {
+                    close(pipefd[i - 1].0)?;
+                    close(pipefd[i - 1].1)?;
+                }
+            }
+            ForkResult::Child => {
+                let first_args = pipe_args[i].clone();
+                let command = CString::new(first_args[0].to_string()).unwrap();
+                let command_args: Vec<CString> = first_args
+                    .iter()
+                    .map(|arg| CString::new(*arg).unwrap())
+                    .collect();
+
+                if i == 0 {
+                    dup2(pipefd[i].1, 1).unwrap_or_else(|_| exit(1));
+                    close(pipefd[i].0).unwrap_or_else(|_| exit(1));
+                    close(pipefd[i].1).unwrap_or_else(|_| exit(1));
+                } else if i == pipe_args.len() - 1 {
+                    dup2(pipefd[i - 1].0, 0).unwrap_or_else(|_| exit(1));
+                    close(pipefd[i - 1].0).unwrap_or_else(|_| exit(1));
+                    close(pipefd[i - 1].1).unwrap_or_else(|_| exit(1));
+                } else {
+                    // 0から取り出す(読み込み)
+                    dup2(pipefd[i - 1].0, 0).unwrap_or_else(|_| exit(1));
+                    close(pipefd[i - 1].0).unwrap_or_else(|_| exit(1));
+                    close(pipefd[i - 1].1).unwrap_or_else(|_| exit(1));
+
+                    // 1に入れる(書き込み)
+                    dup2(pipefd[i].1, 1).unwrap_or_else(|_| exit(1));
+                    close(pipefd[i].0).unwrap_or_else(|_| exit(1));
+                    close(pipefd[i].1).unwrap_or_else(|_| exit(1));
+                }
+
+                match execvp(&command, &command_args) {
+                    Ok(_) => exit(0),
+                    Err(_) => {
+                        eprintln!("{}: command not found", first_args[0]);
+                        exit(1);
+                    }
+                };
+            }
+        };
+    }
+
+    for child in children {
+        match waitpid(child, None)? {
+            WaitStatus::Exited(pid, status) => {
+                println!("child (PID={}) finished: exit, status={}", pid, status);
+            }
+            WaitStatus::Signaled(pid, status, _) => {
+                println!("child (PID={}) finished: signal, sig={}", pid, status);
+            }
+            _ => println!("abnoraml exit"),
+        };
+    }
+
+    Ok(())
+}
+
+fn slice_vec_with_str<'a, 'b>(args: Vec<&'a str>, slice_key: &'b str) -> Vec<Vec<&'a str>> {
     let positions: Vec<usize> = args
         .iter()
         .enumerate()
-        .filter(|&(_, s)| *s == "|")
+        .filter(|&(_, s)| *s == slice_key)
         .map(|(i, _)| i)
         .collect();
 
