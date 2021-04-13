@@ -7,6 +7,17 @@ use std::io::{BufReader, BufWriter};
 use std::process::exit;
 use whoami;
 
+enum RedirectCategory {
+    Append,
+    Overwrite,
+    None,
+}
+
+struct RedirectInfo<'a> {
+    path: &'a str,
+    category: RedirectCategory,
+}
+
 fn main() {
     let stdin = io::stdin();
     let stdout = io::stdout();
@@ -38,19 +49,65 @@ fn main() {
             break;
         }
 
-        let pipe_args = slice_vec_with_str(args, "|");
+        let (pipe_args, redirect_info) = parse_redirect_info(slice_vec_with_str(args, "|"));
 
         if pipe_args.len() == 1 {
-            singlestage_pipe(pipe_args).unwrap();
+            singlestage_pipe(pipe_args, redirect_info).unwrap();
         } else {
-            multistage_pipe(pipe_args).unwrap();
+            multistage_pipe(pipe_args, redirect_info).unwrap();
         }
 
         input_string.clear();
     }
 }
 
-fn singlestage_pipe(pipe_args: Vec<Vec<&str>>) -> nix::Result<()> {
+fn parse_redirect_info<'a>(mut args: Vec<Vec<&'a str>>) -> (Vec<Vec<&'a str>>, RedirectInfo<'a>) {
+    let args_len = args.len();
+    let last_arg_len = args[args_len - 1].len();
+    if last_arg_len < 3 {
+        return (
+            args,
+            RedirectInfo {
+                path: "",
+                category: RedirectCategory::None,
+            },
+        );
+    }
+    match args[args_len - 1][last_arg_len - 2] {
+        ">" => {
+            let path = args[args_len - 1].pop().unwrap();
+            args[args_len - 1].pop().unwrap();
+            (
+                args,
+                RedirectInfo {
+                    path: path,
+                    category: RedirectCategory::Overwrite,
+                },
+            )
+        }
+
+        ">>" => {
+            let path = args[args_len - 1].pop().unwrap();
+            args[args_len - 1].pop().unwrap();
+            (
+                args,
+                RedirectInfo {
+                    path: path,
+                    category: RedirectCategory::Append,
+                },
+            )
+        }
+        _ => (
+            args,
+            RedirectInfo {
+                path: "",
+                category: RedirectCategory::None,
+            },
+        ),
+    }
+}
+
+fn singlestage_pipe(pipe_args: Vec<Vec<&str>>, redirect_info: RedirectInfo) -> nix::Result<()> {
     match unsafe { fork() }? {
         ForkResult::Parent { child, .. } => {
             match waitpid(child, None)? {
@@ -84,7 +141,7 @@ fn singlestage_pipe(pipe_args: Vec<Vec<&str>>) -> nix::Result<()> {
     Ok(())
 }
 
-fn multistage_pipe(pipe_args: Vec<Vec<&str>>) -> nix::Result<()> {
+fn multistage_pipe(pipe_args: Vec<Vec<&str>>, redirect_info: RedirectInfo) -> nix::Result<()> {
     let mut pipefd: Vec<(i32, i32)> = Vec::with_capacity(pipe_args.len());
     let mut children: Vec<Pid> = Vec::with_capacity(pipe_args.len());
 
