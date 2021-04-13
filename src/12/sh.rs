@@ -34,6 +34,10 @@ fn main() {
             continue;
         }
 
+        if args.len() == 1 && args[0] == "exit" {
+            break;
+        }
+
         let pipe_args = slice_vec_with_str(args);
 
         if pipe_args.len() == 1 {
@@ -85,6 +89,7 @@ fn main() {
                     ForkResult::Parent { child, .. } => {
                         children.push(child);
 
+                        // 親側から実行済みのパイプを消す
                         if i > 0 {
                             close(pipefd[i - 1].0).unwrap_or_else(|_| exit(1));
                             close(pipefd[i - 1].1).unwrap_or_else(|_| exit(1));
