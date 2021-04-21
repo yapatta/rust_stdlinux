@@ -1,7 +1,8 @@
 use nix::fcntl::{open, OFlag};
 use nix::sys::stat::Mode;
 use nix::sys::wait::{waitpid, WaitStatus};
-use nix::unistd::{close, dup2, execvp, fork, pipe, ForkResult, Pid};
+use nix::unistd::{chdir, close, dup2, execvp, fork, pipe, ForkResult, Pid};
+use std::env::current_dir;
 use std::ffi::CString;
 use std::io;
 use std::io::prelude::*;
@@ -53,13 +54,31 @@ fn main() {
         let (pipe_args, redirect_info) = parse_redirect_info(slice_vec_with_str(args, "|"));
 
         if pipe_args.len() == 1 {
-            singlestage_pipe(pipe_args, redirect_info).unwrap();
+            if pipe_args[0][0] == "cd" {
+                exec_chdir(&pipe_args[0]).unwrap();
+            } else {
+                singlestage_pipe(pipe_args, redirect_info).unwrap();
+            }
         } else {
             multistage_pipe(pipe_args, redirect_info).unwrap();
         }
 
         input_string.clear();
     }
+}
+
+fn exec_chdir(args: &Vec<&str>) -> nix::Result<()> {
+    if args.len() == 2 {
+        chdir(args[1])?;
+    } else if args.len() > 2 {
+        eprintln!(
+            "{}: no such file or directory: {:?}",
+            args[0],
+            current_dir().unwrap()
+        );
+    }
+
+    Ok(())
 }
 
 fn parse_redirect_info<'a>(mut args: Vec<Vec<&'a str>>) -> (Vec<Vec<&'a str>>, RedirectInfo<'a>) {
