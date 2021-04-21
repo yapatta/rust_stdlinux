@@ -94,8 +94,13 @@ name = "sh"
 path = "src/12/sh.rs"
 opt-level = 3
 
+[[bin]]
+name ="sigint"
+path = "src/13/sigint.rs"
+
 [dependencies]
 getopts = "0.2.21"
+libc = "0.2.93"
 nix = "0.20.0"
 regex = "1.4.5"
 whoami = "1.1.2"
