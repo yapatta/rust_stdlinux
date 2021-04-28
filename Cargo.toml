@@ -98,7 +98,13 @@ opt-level = 3
 name ="sigint"
 path = "src/13/sigint.rs"
 
+[[bin]]
+name ="lse"
+path = "src/14/ls.rs"
+
 [dependencies]
+anyhow = "1.0.40"
+chrono = "0.4.19"
 getopts = "0.2.21"
 libc = "0.2.93"
 nix = "0.20.0"
