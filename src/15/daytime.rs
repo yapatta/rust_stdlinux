@@ -34,7 +34,7 @@ fn main() -> Result<()> {
 
     let mut buf = String::new();
     stream.read_line(&mut buf)?;
-    println!("{}", buf);
+    print!("{}", buf);
 
     Ok(())
 }
