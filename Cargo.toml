@@ -106,6 +106,10 @@ path = "src/14/ls.rs"
 name = "daytime"
 path = "src/15/daytime.rs"
 
+[[bin]]
+name = "server"
+path = "src/17/server.rs"
+
 [dependencies]
 anyhow = "1.0.40"
 chrono = "0.4.19"
