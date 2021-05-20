@@ -36,7 +36,7 @@ struct HTTPRequest {
     protocol_minor_version: i32,
     method: String,
     path: String,
-    header: HTTPHeaderField,
+    header: Box<HTTPHeaderField>,
     body: String,
     length: i64,
 }
