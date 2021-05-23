@@ -66,7 +66,7 @@ impl HTTPRequest {
     }
 }
 
-fn service<R>(
+fn service(
     buf_in: BufReader<std::io::StdinLock>,
     buf_out: BufWriter<std::io::StdoutLock>,
     path: &str,
