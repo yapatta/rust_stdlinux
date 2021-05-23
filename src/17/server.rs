@@ -206,7 +206,7 @@ fn service(
     path: &str,
 ) -> Result<()> {
     let req = read_request(buf_in)?;
-    // respond_to(req, buf_out, path)?;
+    respond_to(&req, buf_out, path.to_string())?;
     Ok(())
 }
 
