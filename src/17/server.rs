@@ -64,8 +64,10 @@ impl HTTPRequest {
     }
 }
 
-fn install_signal_handlers() {
-    trap_signal(Signal::SIGPIPE, signal_exit);
+fn install_signal_handlers() -> Result<()> {
+    trap_signal(Signal::SIGPIPE, signal_exit)?;
+
+    Ok(())
 }
 
 fn trap_signal(sig: Signal, handler: extern "C" fn(i32)) -> Result<()> {
@@ -83,6 +85,7 @@ fn trap_signal(sig: Signal, handler: extern "C" fn(i32)) -> Result<()> {
 extern "C" fn signal_exit(signum: i32) {
     println!("exit by signal {}", signum);
 }
+
 fn service(
     buf_in: &mut BufReader<std::io::StdinLock>,
     buf_out: &mut BufWriter<std::io::StdoutLock>,
@@ -183,7 +186,7 @@ fn main() -> Result<()> {
         exit(1);
     }
 
-    install_signal_handlers();
+    install_signal_handlers()?;
 
     let stdin = io::stdin();
     let stdout = io::stdout();
