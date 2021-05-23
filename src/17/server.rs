@@ -2,9 +2,12 @@ use anyhow::Result;
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal};
 use std::env;
 use std::fmt;
+use std::fs;
+use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
+use std::process;
 use std::process::exit;
 use std::str::FromStr;
 
@@ -64,6 +67,89 @@ impl HTTPRequest {
     }
 }
 
+struct FileInfo {
+    path: String,
+    size: u64,
+    ok: bool,
+}
+
+impl FileInfo {
+    pub fn new(docroot: String, urlpath: String) -> FileInfo {
+        let path = docroot + "/" + &urlpath;
+
+        let st = match fs::metadata(&path) {
+            Ok(st) => st,
+            Err(why) => {
+                eprintln!("{:?}: {:?}", &path, why.to_string());
+                process::exit(1);
+            }
+        };
+
+        if !st.is_file() {
+            return FileInfo {
+                path: path,
+                size: 0,
+                ok: false,
+            };
+        }
+
+        FileInfo {
+            path: path,
+            size: st.len(),
+            ok: true,
+        }
+    }
+}
+
+fn respond_to(
+    req: &HTTPRequest,
+    buf_out: &mut BufWriter<io::StdoutLock>,
+    docroot: String,
+) -> Result<()> {
+    if req.method == "GET" {
+        do_file_response(req, buf_out, docroot)?;
+    } else if req.method == "HEAD" {
+        do_file_response(req, buf_out, docroot)?;
+    } else if req.method == "POST" {
+        method_not_allowed(req, buf_out)?;
+    } else {
+        not_implemented(req, buf_out)?;
+    }
+
+    Ok(())
+}
+
+fn do_file_response(
+    req: &HTTPRequest,
+    buf_out: &mut BufWriter<io::StdoutLock>,
+    docroot: String,
+) -> Result<()> {
+    let info = FileInfo::new(docroot, req.path);
+
+    if !info.ok {
+        // not_found(req, buf_out)?;
+        return Ok(());
+    }
+
+    write!(buf_out, "Content-Length: {}\r\n", info.size);
+    // TODO: implement guess_content_type fn
+    write!(buf_out, "Content-Type: {}\r\n", "text/html");
+    write!(buf_out, "\r\n");
+
+    if req.method != "HEAD" {
+        let file = File::open(info.path)?;
+        let mut file_buf = BufReader::new(file);
+        let mut file_string = String::new();
+        file_buf.read_to_string(&mut file_string)?;
+
+        buf_out.write_all(file_string.as_bytes())?;
+    }
+
+    buf_out.flush()?;
+
+    Ok(())
+}
+
 fn install_signal_handlers() -> Result<()> {
     trap_signal(Signal::SIGPIPE, signal_exit)?;
 
@@ -87,8 +173,8 @@ extern "C" fn signal_exit(signum: i32) {
 }
 
 fn service(
-    buf_in: &mut BufReader<std::io::StdinLock>,
-    buf_out: &mut BufWriter<std::io::StdoutLock>,
+    buf_in: &mut BufReader<io::StdinLock>,
+    buf_out: &mut BufWriter<io::StdoutLock>,
     path: &str,
 ) -> Result<()> {
     let req = read_request(buf_in)?;
@@ -96,7 +182,7 @@ fn service(
     Ok(())
 }
 
-fn read_request(buf_in: &mut BufReader<std::io::StdinLock>) -> Result<(HTTPRequest)> {
+fn read_request(buf_in: &mut BufReader<io::StdinLock>) -> Result<(HTTPRequest)> {
     let mut req = HTTPRequest::new();
     read_request_line(buf_in, &mut req)?;
 
@@ -135,7 +221,7 @@ fn content_length(h: &Option<Box<HTTPHeaderField>>) -> Option<i64> {
     return None;
 }
 
-fn read_header_field(buf_in: &mut BufReader<std::io::StdinLock>) -> Option<HTTPHeaderField> {
+fn read_header_field(buf_in: &mut BufReader<io::StdinLock>) -> Option<HTTPHeaderField> {
     let mut line = String::new();
     if let Some(n) = buf_in.read_line(&mut line).ok() {
         if n == 0 {
@@ -152,10 +238,7 @@ fn read_header_field(buf_in: &mut BufReader<std::io::StdinLock>) -> Option<HTTPH
     return None;
 }
 
-fn read_request_line(
-    buf_in: &mut BufReader<std::io::StdinLock>,
-    req: &mut HTTPRequest,
-) -> Result<()> {
+fn read_request_line(buf_in: &mut BufReader<io::StdinLock>, req: &mut HTTPRequest) -> Result<()> {
     let mut line = String::new();
     let _ = buf_in.read_line(&mut line)?;
     line.remove(line.len() - 1);
