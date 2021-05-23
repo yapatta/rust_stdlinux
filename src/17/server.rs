@@ -1,4 +1,5 @@
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal};
 use std::env;
 use std::fmt;
@@ -12,6 +13,9 @@ use std::process::exit;
 use std::str::FromStr;
 
 const MAX_REQUEST_BODY_LENGTH: i64 = 10_000;
+const HTTP_MINOR_VERSION: u32 = 1;
+const SERVER_NAME: &str = "Rust Http";
+const SERVER_VERSION: &str = "0.0.1";
 
 #[derive(Debug)]
 pub enum CustomError {
@@ -74,7 +78,7 @@ struct FileInfo {
 }
 
 impl FileInfo {
-    pub fn new(docroot: String, urlpath: String) -> FileInfo {
+    pub fn new(docroot: String, urlpath: &str) -> FileInfo {
         let path = docroot + "/" + &urlpath;
 
         let st = match fs::metadata(&path) {
@@ -119,22 +123,31 @@ fn respond_to(
     Ok(())
 }
 
+fn not_implemented(req: &HTTPRequest, buf_out: &mut BufWriter<io::StdoutLock>) -> Result<()> {
+    Ok(())
+}
+
+fn method_not_allowed(req: &HTTPRequest, buf_out: &mut BufWriter<io::StdoutLock>) -> Result<()> {
+    Ok(())
+}
+
 fn do_file_response(
     req: &HTTPRequest,
     buf_out: &mut BufWriter<io::StdoutLock>,
     docroot: String,
 ) -> Result<()> {
-    let info = FileInfo::new(docroot, req.path);
+    let info = FileInfo::new(docroot, &req.path);
 
     if !info.ok {
         // not_found(req, buf_out)?;
         return Ok(());
     }
 
-    write!(buf_out, "Content-Length: {}\r\n", info.size);
+    output_common_header_fields(req, buf_out, "200 OK")?;
+    write!(buf_out, "Content-Length: {}\r\n", info.size)?;
     // TODO: implement guess_content_type fn
-    write!(buf_out, "Content-Type: {}\r\n", "text/html");
-    write!(buf_out, "\r\n");
+    write!(buf_out, "Content-Type: {}\r\n", "text/html")?;
+    write!(buf_out, "\r\n")?;
 
     if req.method != "HEAD" {
         let file = File::open(info.path)?;
@@ -147,6 +160,21 @@ fn do_file_response(
 
     buf_out.flush()?;
 
+    Ok(())
+}
+
+fn output_common_header_fields(
+    req: &HTTPRequest,
+    buf_out: &mut BufWriter<io::StdoutLock>,
+    status: &str,
+) -> Result<()> {
+    write!(buf_out, "HTTP/1.{} {}\r\n", HTTP_MINOR_VERSION, status)?;
+
+    let utc: DateTime<Utc> = Utc::now();
+    write!(buf_out, "Date: {}", utc.format("%a, %d %b %Y %H:%M:%S GMT"))?;
+
+    write!(buf_out, "Server: {}/{}\r\n", SERVER_NAME, SERVER_VERSION)?;
+    write!(buf_out, "Connection: close\r\n")?;
     Ok(())
 }
 
