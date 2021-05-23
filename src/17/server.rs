@@ -80,8 +80,26 @@ fn service<R>(
 fn read_request(buf_in: BufReader<std::io::StdinLock>) -> Result<(HTTPRequest)> {
     let mut req = HTTPRequest::new();
     read_request_line(buf_in, &mut req)?;
+    read_header_field(buf_in);
 
     Ok(req)
+}
+
+fn read_header_field(buf_in: BufReader<std::io::StdinLock>) -> Option<HTTPHeaderField> {
+    let mut line = String::new();
+    if let Some(n) = buf_in.read_line(&mut line).ok() {
+        if n == 0 {
+            return None;
+        }
+        let kv: Vec<&str> = line.split_whitespace().collect();
+
+        let h = HTTPHeaderField::new();
+        h.name = kv[0].to_string();
+        h.value = kv[1].to_string();
+
+        return Some(h);
+    }
+    return None;
 }
 
 fn read_request_line(buf_in: BufReader<std::io::StdinLock>, req: &mut HTTPRequest) -> Result<()> {
