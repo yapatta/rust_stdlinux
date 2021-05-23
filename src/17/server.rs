@@ -84,17 +84,16 @@ extern "C" fn signal_exit(signum: i32) {
     println!("exit by signal {}", signum);
 }
 fn service(
-    buf_in: BufReader<std::io::StdinLock>,
-    buf_out: BufWriter<std::io::StdoutLock>,
+    buf_in: &mut BufReader<std::io::StdinLock>,
+    buf_out: &mut BufWriter<std::io::StdoutLock>,
     path: &str,
 ) -> Result<()> {
-    let mut req = HTTPRequest::new();
-    read_request(buf_in, &mut req)?;
-    respond_to(req, buf_out, path)?;
+    let req = read_request(buf_in)?;
+    // respond_to(req, buf_out, path)?;
     Ok(())
 }
 
-fn read_request(buf_in: BufReader<std::io::StdinLock>) -> Result<(HTTPRequest)> {
+fn read_request(buf_in: &mut BufReader<std::io::StdinLock>) -> Result<(HTTPRequest)> {
     let mut req = HTTPRequest::new();
     read_request_line(buf_in, &mut req)?;
 
@@ -103,7 +102,7 @@ fn read_request(buf_in: BufReader<std::io::StdinLock>) -> Result<(HTTPRequest)> 
         req.header = Some(Box::new(h));
     }
 
-    if let Some(l) = content_length(&req) {
+    if let Some(l) = content_length(&req.header) {
         req.length = l;
     } else {
         Err(CustomError::ParseError("no content length".to_string()))?;
@@ -122,18 +121,18 @@ fn read_request(buf_in: BufReader<std::io::StdinLock>) -> Result<(HTTPRequest)> 
     Ok(req)
 }
 
-fn content_length(req: &HTTPRequest) -> Option<i64> {
-    let mut h = req.header;
-    while let Some(kv) = h {
+fn content_length(h: &Option<Box<HTTPHeaderField>>) -> Option<i64> {
+    if let Some(kv) = h {
         if kv.name == "Content-Length" {
             return kv.value.parse::<i64>().ok();
+        } else {
+            return content_length(&kv.next);
         }
-        h = kv.next;
     }
-    None
+    return None;
 }
 
-fn read_header_field(buf_in: BufReader<std::io::StdinLock>) -> Option<HTTPHeaderField> {
+fn read_header_field(buf_in: &mut BufReader<std::io::StdinLock>) -> Option<HTTPHeaderField> {
     let mut line = String::new();
     if let Some(n) = buf_in.read_line(&mut line).ok() {
         if n == 0 {
@@ -141,7 +140,7 @@ fn read_header_field(buf_in: BufReader<std::io::StdinLock>) -> Option<HTTPHeader
         }
         let kv: Vec<&str> = line.split_whitespace().collect();
 
-        let h = HTTPHeaderField::new();
+        let mut h = HTTPHeaderField::new();
         h.name = kv[0].to_string();
         h.value = kv[1].to_string();
 
@@ -150,7 +149,10 @@ fn read_header_field(buf_in: BufReader<std::io::StdinLock>) -> Option<HTTPHeader
     return None;
 }
 
-fn read_request_line(buf_in: BufReader<std::io::StdinLock>, req: &mut HTTPRequest) -> Result<()> {
+fn read_request_line(
+    buf_in: &mut BufReader<std::io::StdinLock>,
+    req: &mut HTTPRequest,
+) -> Result<()> {
     let mut line = String::new();
     let _ = buf_in.read_line(&mut line)?;
     line.remove(line.len() - 1);
@@ -162,7 +164,8 @@ fn read_request_line(buf_in: BufReader<std::io::StdinLock>, req: &mut HTTPReques
     let protocol = args[2].to_string();
 
     if !protocol.starts_with("HTTP/1.") {
-        Err(CustomError::ParseError(protocol))?;
+        // 本当は Err(CustomError::ParseError(protocol))? と書きたかった...
+        return Err(From::from(CustomError::ParseError(protocol)));
     }
     let protocol_minor_version: i32 = FromStr::from_str(&protocol[protocol.len() - 1..])?;
 
@@ -187,7 +190,7 @@ fn main() -> Result<()> {
     let mut buf_in = BufReader::new(stdin.lock());
     let mut buf_out = BufWriter::new(stdout.lock());
 
-    service(buf_in, buf_out, &args[1])?;
+    service(&mut buf_in, &mut buf_out, &args[1])?;
 
     Ok(())
 }
