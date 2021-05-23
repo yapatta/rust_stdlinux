@@ -97,7 +97,7 @@ fn read_request(buf_in: &mut BufReader<std::io::StdinLock>) -> Result<(HTTPReque
     let mut req = HTTPRequest::new();
     read_request_line(buf_in, &mut req)?;
 
-    while let Some(h) = read_header_field(buf_in) {
+    while let Some(mut h) = read_header_field(buf_in) {
         h.next = req.header;
         req.header = Some(Box::new(h));
     }
