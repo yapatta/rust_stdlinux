@@ -67,7 +67,7 @@ impl HTTPRequest {
 }
 
 fn service<R>(
-    buf_in: BufReader<R>,
+    buf_in: BufReader<std::io::StdinLock>,
     buf_out: BufWriter<std::io::StdoutLock>,
     path: &str,
 ) -> Result<()> {
@@ -77,14 +77,14 @@ fn service<R>(
     Ok(())
 }
 
-fn read_request<R>(buf_in: BufReader<R>) -> Result<(HTTPRequest)> {
-    let req = HTTPHeaderField::new();
+fn read_request(buf_in: BufReader<std::io::StdinLock>) -> Result<(HTTPRequest)> {
+    let mut req = HTTPRequest::new();
+    read_request_line(buf_in, &mut req)?;
+
+    Ok(req)
 }
 
-fn read_request_line<R>(
-    buf_in: BufReader<std::io::StdinLock>,
-    req: &mut HTTPRequest,
-) -> Result<()> {
+fn read_request_line(buf_in: BufReader<std::io::StdinLock>, req: &mut HTTPRequest) -> Result<()> {
     let mut line = String::new();
     let _ = buf_in.read_line(&mut line)?;
     line.remove(line.len() - 1);
