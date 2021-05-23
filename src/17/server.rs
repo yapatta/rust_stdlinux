@@ -21,7 +21,7 @@ impl fmt::Display for CustomError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             CustomError::ParseError(s) => write!(f, "Parse Error: {}", s),
-            TooLongRequestBodyError => write!(f, "Too Long RequestBody Error"),
+            CustomError::TooLongRequestBodyError => write!(f, "Too Long RequestBody Error"),
         }
     }
 }
