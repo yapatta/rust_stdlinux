@@ -48,7 +48,7 @@ struct HTTPRequest {
     protocol_minor_version: i32,
     method: String,
     path: String,
-    header: Box<HTTPHeaderField>,
+    header: Option<Box<HTTPHeaderField>>,
     body: String,
     length: i64,
 }
@@ -59,7 +59,7 @@ impl HTTPRequest {
             protocol_minor_version: 0,
             method: String::new(),
             path: String::new(),
-            header: Box::new(HTTPHeaderField::new()),
+            header: None,
             body: String::new(),
             length: 0,
         }
@@ -80,9 +80,24 @@ fn service(
 fn read_request(buf_in: BufReader<std::io::StdinLock>) -> Result<(HTTPRequest)> {
     let mut req = HTTPRequest::new();
     read_request_line(buf_in, &mut req)?;
-    read_header_field(buf_in);
+
+    while let Some(h) = read_header_field(buf_in) {
+        h.next = req.header;
+        req.header = Some(Box::new(h));
+    }
 
     Ok(req)
+}
+
+fn content_length(req: &mut HTTPRequest) -> Option<u32> {
+    let mut h = req.header;
+    while let Some(kv) = h {
+        if kv.name == "Content-Length" {
+            return kv.value.parse::<u32>().ok();
+        }
+        h = kv.next;
+    }
+    None
 }
 
 fn read_header_field(buf_in: BufReader<std::io::StdinLock>) -> Option<HTTPHeaderField> {
