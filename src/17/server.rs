@@ -105,6 +105,7 @@ impl FileInfo {
     }
 }
 
+// TODO: implement like OOP
 fn respond_to(
     req: &HTTPRequest,
     buf_out: &mut BufWriter<io::StdoutLock>,
@@ -123,14 +124,22 @@ fn respond_to(
     Ok(())
 }
 
+// TODO: 404
+fn not_found(req: &HTTPRequest, buf_out: &mut BufWriter<io::StdoutLock>) -> Result<()> {
+    Ok(())
+}
+
+// TODO: 501
 fn not_implemented(req: &HTTPRequest, buf_out: &mut BufWriter<io::StdoutLock>) -> Result<()> {
     Ok(())
 }
 
+// TODO: 405
 fn method_not_allowed(req: &HTTPRequest, buf_out: &mut BufWriter<io::StdoutLock>) -> Result<()> {
     Ok(())
 }
 
+// TODO: implement like OOP
 fn do_file_response(
     req: &HTTPRequest,
     buf_out: &mut BufWriter<io::StdoutLock>,
@@ -146,7 +155,7 @@ fn do_file_response(
     output_common_header_fields(req, buf_out, "200 OK")?;
     write!(buf_out, "Content-Length: {}\r\n", info.size)?;
     // TODO: implement guess_content_type fn
-    write!(buf_out, "Content-Type: {}\r\n", "text/html")?;
+    write!(buf_out, "Content-Type: {}\r\n", "text/plain")?;
     write!(buf_out, "\r\n")?;
 
     if req.method != "HEAD" {
@@ -219,11 +228,12 @@ fn read_request(buf_in: &mut BufReader<io::StdinLock>) -> Result<(HTTPRequest)> 
         req.header = Some(Box::new(h));
     }
 
-    if let Some(l) = content_length(&req.header) {
-        req.length = l;
+    req.length = if let Some(l) = content_length(&req.header) {
+        l
     } else {
-        Err(CustomError::ParseError("no content length".to_string()))?;
-    }
+        0
+        // Err(CustomError::ParseError("no content length".to_string()))?;
+    };
 
     if req.length != 0 {
         if req.length > MAX_REQUEST_BODY_LENGTH {
@@ -257,11 +267,13 @@ fn read_header_field(buf_in: &mut BufReader<io::StdinLock>) -> Option<HTTPHeader
         }
         let kv: Vec<&str> = line.split_whitespace().collect();
 
-        let mut h = HTTPHeaderField::new();
-        h.name = kv[0].to_string();
-        h.value = kv[1].to_string();
+        if kv.len() >= 2 {
+            let mut h = HTTPHeaderField::new();
+            h.name = kv[0].to_string();
+            h.value = kv[1].to_string();
 
-        return Some(h);
+            return Some(h);
+        }
     }
     return None;
 }
