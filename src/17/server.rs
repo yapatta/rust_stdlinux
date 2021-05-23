@@ -8,24 +8,22 @@ use std::io::{BufReader, BufWriter};
 use std::process::exit;
 use std::str::FromStr;
 
-fn install_signal_handlers() {
-    trap_signal(Signal::SIGPIPE, signal_exit);
+const MAX_REQUEST_BODY_LENGTH: i64 = 10_000;
+
+#[derive(Debug)]
+pub enum CustomError {
+    ParseError(String),
+    TooLongRequestBodyError,
 }
 
-fn trap_signal(sig: Signal, handler: extern "C" fn(i32)) -> Result<()> {
-    let act = SigAction::new(
-        SigHandler::Handler(handler),
-        SaFlags::SA_RESTART,
-        SigSet::empty(),
-    );
-
-    unsafe { sigaction(sig, &act) }?;
-
-    Ok(())
-}
-
-extern "C" fn signal_exit(signum: i32) {
-    println!("exit by signal {}", signum);
+impl std::error::Error for CustomError {}
+impl fmt::Display for CustomError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            CustomError::ParseError(s) => write!(f, "Parse Error: {}", s),
+            TooLongRequestBodyError => write!(f, "Too Long RequestBody Error"),
+        }
+    }
 }
 
 struct HTTPHeaderField {
@@ -66,6 +64,25 @@ impl HTTPRequest {
     }
 }
 
+fn install_signal_handlers() {
+    trap_signal(Signal::SIGPIPE, signal_exit);
+}
+
+fn trap_signal(sig: Signal, handler: extern "C" fn(i32)) -> Result<()> {
+    let act = SigAction::new(
+        SigHandler::Handler(handler),
+        SaFlags::SA_RESTART,
+        SigSet::empty(),
+    );
+
+    unsafe { sigaction(sig, &act) }?;
+
+    Ok(())
+}
+
+extern "C" fn signal_exit(signum: i32) {
+    println!("exit by signal {}", signum);
+}
 fn service(
     buf_in: BufReader<std::io::StdinLock>,
     buf_out: BufWriter<std::io::StdoutLock>,
@@ -86,14 +103,30 @@ fn read_request(buf_in: BufReader<std::io::StdinLock>) -> Result<(HTTPRequest)> 
         req.header = Some(Box::new(h));
     }
 
+    if let Some(l) = content_length(&req) {
+        req.length = l;
+    } else {
+        Err(CustomError::ParseError("no content length".to_string()))?;
+    }
+
+    if req.length != 0 {
+        if req.length > MAX_REQUEST_BODY_LENGTH {
+            Err(CustomError::TooLongRequestBodyError)?;
+        }
+
+        let mut body = String::with_capacity(req.length as usize);
+        buf_in.read_to_string(&mut body)?;
+        req.body = body;
+    }
+
     Ok(req)
 }
 
-fn content_length(req: &mut HTTPRequest) -> Option<u32> {
+fn content_length(req: &HTTPRequest) -> Option<i64> {
     let mut h = req.header;
     while let Some(kv) = h {
         if kv.name == "Content-Length" {
-            return kv.value.parse::<u32>().ok();
+            return kv.value.parse::<i64>().ok();
         }
         h = kv.next;
     }
@@ -139,21 +172,6 @@ fn read_request_line(buf_in: BufReader<std::io::StdinLock>, req: &mut HTTPReques
 
     Ok(())
 }
-
-#[derive(Debug)]
-pub enum CustomError {
-    ParseError(String),
-}
-
-impl std::error::Error for CustomError {}
-impl fmt::Display for CustomError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            CustomError::ParseError(s) => write!(f, "Parse Error: {}", s),
-        }
-    }
-}
-
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
 
