@@ -148,7 +148,7 @@ fn do_file_response(
     let info = FileInfo::new(docroot, &req.path);
 
     if !info.ok {
-        // not_found(req, buf_out)?;
+        not_found(req, buf_out)?;
         return Ok(());
     }
 
