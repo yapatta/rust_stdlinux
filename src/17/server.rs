@@ -1,10 +1,12 @@
 use anyhow::Result;
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal};
 use std::env;
+use std::fmt;
 use std::io;
 use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
 use std::process::exit;
+use std::str::FromStr;
 
 fn install_signal_handlers() {
     trap_signal(Signal::SIGPIPE, signal_exit);
@@ -29,7 +31,17 @@ extern "C" fn signal_exit(signum: i32) {
 struct HTTPHeaderField {
     name: String,
     value: String,
-    next: Box<HTTPHeaderField>,
+    next: Option<Box<HTTPHeaderField>>,
+}
+
+impl HTTPHeaderField {
+    pub fn new() -> HTTPHeaderField {
+        HTTPHeaderField {
+            name: String::new(),
+            value: String::new(),
+            next: None,
+        }
+    }
 }
 
 struct HTTPRequest {
@@ -41,13 +53,72 @@ struct HTTPRequest {
     length: i64,
 }
 
+impl HTTPRequest {
+    pub fn new() -> HTTPRequest {
+        HTTPRequest {
+            protocol_minor_version: 0,
+            method: String::new(),
+            path: String::new(),
+            header: Box::new(HTTPHeaderField::new()),
+            body: String::new(),
+            length: 0,
+        }
+    }
+}
+
 fn service<R>(
     buf_in: BufReader<R>,
     buf_out: BufWriter<std::io::StdoutLock>,
     path: &str,
 ) -> Result<()> {
-    let req: HTTPRequest;
+    let mut req = HTTPRequest::new();
+    read_request(buf_in, &mut req)?;
+    respond_to(req, buf_out, path)?;
     Ok(())
+}
+
+fn read_request<R>(buf_in: BufReader<R>) -> Result<(HTTPRequest)> {
+    let req = HTTPHeaderField::new();
+}
+
+fn read_request_line<R>(
+    buf_in: BufReader<std::io::StdinLock>,
+    req: &mut HTTPRequest,
+) -> Result<()> {
+    let mut line = String::new();
+    let _ = buf_in.read_line(&mut line)?;
+    line.remove(line.len() - 1);
+
+    let args: Vec<&str> = line.split_whitespace().collect();
+
+    let method = args[0].to_uppercase();
+    let path = args[1].to_string();
+    let protocol = args[2].to_string();
+
+    if !protocol.starts_with("HTTP/1.") {
+        Err(CustomError::ParseError(protocol))?;
+    }
+    let protocol_minor_version: i32 = FromStr::from_str(&protocol[protocol.len() - 1..])?;
+
+    req.protocol_minor_version = protocol_minor_version;
+    req.method = method;
+    req.path = path;
+
+    Ok(())
+}
+
+#[derive(Debug)]
+pub enum CustomError {
+    ParseError(String),
+}
+
+impl std::error::Error for CustomError {}
+impl fmt::Display for CustomError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            CustomError::ParseError(s) => write!(f, "Parse Error: {}", s),
+        }
+    }
 }
 
 fn main() -> Result<()> {
