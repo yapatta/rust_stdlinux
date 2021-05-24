@@ -8,7 +8,6 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
-use std::process;
 use std::process::exit;
 use std::str::FromStr;
 
@@ -83,9 +82,12 @@ impl FileInfo {
 
         let st = match fs::metadata(&path) {
             Ok(st) => st,
-            Err(why) => {
-                eprintln!("{:?}: {:?}", &path, why.to_string());
-                process::exit(1);
+            Err(_) => {
+                return FileInfo {
+                    path: path,
+                    size: 0,
+                    ok: false,
+                };
             }
         };
 
@@ -126,16 +128,19 @@ fn respond_to(
 
 // TODO: 404
 fn not_found(req: &HTTPRequest, buf_out: &mut BufWriter<io::StdoutLock>) -> Result<()> {
+    output_common_header_fields(req, buf_out, "404 Not Found")?;
     Ok(())
 }
 
 // TODO: 501
 fn not_implemented(req: &HTTPRequest, buf_out: &mut BufWriter<io::StdoutLock>) -> Result<()> {
+    output_common_header_fields(req, buf_out, "501 Not Implemented")?;
     Ok(())
 }
 
 // TODO: 405
 fn method_not_allowed(req: &HTTPRequest, buf_out: &mut BufWriter<io::StdoutLock>) -> Result<()> {
+    output_common_header_fields(req, buf_out, "405 Method Not Allowed")?;
     Ok(())
 }
 
@@ -173,7 +178,7 @@ fn do_file_response(
 }
 
 fn output_common_header_fields(
-    req: &HTTPRequest,
+    _req: &HTTPRequest,
     buf_out: &mut BufWriter<io::StdoutLock>,
     status: &str,
 ) -> Result<()> {
@@ -223,7 +228,7 @@ fn service(
     Ok(())
 }
 
-fn read_request(buf_in: &mut BufReader<io::StdinLock>) -> Result<(HTTPRequest)> {
+fn read_request(buf_in: &mut BufReader<io::StdinLock>) -> Result<HTTPRequest> {
     let mut req = HTTPRequest::new();
     read_request_line(buf_in, &mut req)?;
 

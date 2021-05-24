@@ -7,92 +7,74 @@ edition = "2018"
 [[bin]]
 name = "cat"
 path = "src/5/cat.rs"
-opt-level = 3
 
 [[bin]]
 name = "wcl"
 path = "src/5/wcl.rs"
-opt-level = 3
 
 [[bin]]
 name = "cat_buf"
 path = "src/6/cat_buf.rs"
-opt-level = 3
 
 [[bin]]
 name = "head"
 path = "src/7/head.rs"
-opt-level = 3
 
 [[bin]]
 name = "head_opt"
 path = "src/7/head_opt.rs"
-opt-level = 1
 
 [[bin]]
 name = "grep"
 path = "src/8/grep.rs"
-opt-level = 1
 
 [[bin]]
 name = "ls"
 path = "src/10/ls.rs"
-opt-level = 1
 
 [[bin]]
 name = "mkdir"
 path = "src/10/mkdir.rs"
-opt-level = 1
 
 [[bin]]
 name = "rmdir"
 path = "src/10/rmdir.rs"
-opt-level = 1
 
 [[bin]]
 name = "ln"
 path = "src/10/ln.rs"
-opt-level = 1
 
 [[bin]]
 name = "symlink"
 path = "src/10/symlink.rs"
-opt-level = 1
 
 [[bin]]
 name = "rm"
 path = "src/10/rm.rs"
-opt-level = 1
 
 [[bin]]
 name = "mv"
 path = "src/10/mv.rs"
-opt-level = 1
 
 [[bin]]
 name = "stat"
 path = "src/10/stat.rs"
-opt-level = 1
 
 [[bin]]
 name = "chmod"
 path = "src/10/chmod.rs"
-opt-level = 1
 
 [[bin]]
 name = "tail"
 path = "src/11/tail.rs"
-opt-level = 1
 
 [[bin]]
 name = "spawn"
 path = "src/12/spawn.rs"
-opt-level = 1
 
 [[bin]]
 name = "sh"
 path = "src/12/sh.rs"
-opt-level = 3
 
 [[bin]]
 name ="sigint"
