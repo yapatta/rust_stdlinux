@@ -417,7 +417,7 @@ fn main() -> Result<()> {
 
     if matches.opt_present("h") {
         println!(
-            "Usage: {} [--port=n] [--chroot --user=u --group=g] <docroot>",
+            "Usage: {} [--port=p] [--chroot --user=u --group=g] <docroot>",
             &args[0]
         );
         return Ok(());
@@ -445,7 +445,7 @@ fn main() -> Result<()> {
 
     if matches.free.is_empty() {
         eprintln!(
-            "Usage: {} [--port=n] [--chroot --user=u --group=g] <docroot>",
+            "Usage: {} [--port=p] [--chroot --user=u --group=g] <docroot>",
             &args[0]
         );
 
