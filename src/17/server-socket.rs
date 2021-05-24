@@ -136,19 +136,16 @@ fn respond_to(
     Ok(())
 }
 
-// TODO: 404
 fn not_found(req: &HTTPRequest, buf_out: &mut BufWriter<&TcpStream>) -> Result<()> {
     output_common_header_fields(req, buf_out, "404 Not Found")?;
     Ok(())
 }
 
-// TODO: 501
 fn not_implemented(req: &HTTPRequest, buf_out: &mut BufWriter<&TcpStream>) -> Result<()> {
     output_common_header_fields(req, buf_out, "501 Not Implemented")?;
     Ok(())
 }
 
-// TODO: 405
 fn method_not_allowed(req: &HTTPRequest, buf_out: &mut BufWriter<&TcpStream>) -> Result<()> {
     output_common_header_fields(req, buf_out, "405 Method Not Allowed")?;
     Ok(())
@@ -327,7 +324,8 @@ fn read_request_line(buf_in: &mut BufReader<&TcpStream>, req: &mut HTTPRequest) 
     let protocol = args[2].to_string();
 
     if !protocol.starts_with("HTTP/1.") {
-        // 本当は Err(CustomError::ParseError(protocol))? と書きたかった...
+        // MEMO: 本当は Err(CustomError::ParseError(protocol))? と書きたかった...
+        //       protocolがParseErrorにmoveされてしまうので
         return Err(From::from(CustomError::ParseError(protocol)));
     }
     let protocol_minor_version: i32 = FromStr::from_str(&protocol[protocol.len() - 1..])?;
