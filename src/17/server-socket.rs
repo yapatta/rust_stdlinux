@@ -1,8 +1,13 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use env_logger;
 use getopts;
 use getopts::Options;
+use libc::_exit;
+use nix::fcntl::{open, OFlag};
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal};
+use nix::sys::stat::Mode;
+use nix::unistd::{chdir, dup2, fork, setsid, ForkResult};
 use std::env;
 use std::fmt;
 use std::fs;
@@ -316,6 +321,29 @@ fn read_request_line(buf_in: &mut BufReader<io::StdinLock>, req: &mut HTTPReques
     Ok(())
 }
 
+fn become_daemon() -> Result<()> {
+    chdir("/")?;
+
+    /*
+        let nio = open("/dev/null", OFlag::O_RDWR, Mode::S_IRWXU)?;
+        dup2(nio, 0)?;
+        dup2(nio, 1)?;
+        dup2(nio, 2)?;
+    */
+    match unsafe { fork() }? {
+        ForkResult::Parent { child, .. } => {
+            let mut f = File::create("/home/yuzi/myprogramming/rust/rust_stdlinux/aba.txt")?;
+            write!(f, "child pid: {}", child)?;
+            f.flush()?;
+            unsafe { _exit(0) };
+        }
+        ForkResult::Child => {
+            setsid()?;
+        }
+    }
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
 
@@ -379,7 +407,13 @@ fn main() -> Result<()> {
     let mut buf_in = BufReader::new(stdin.lock());
     let mut buf_out = BufWriter::new(stdout.lock());
 
-    service(&mut buf_in, &mut buf_out, &args[1])?;
+    if !debug_mode {
+        env::set_var("RUST_LOG", "info");
+        env_logger::init();
+        become_daemon()?;
+    }
+
+    service(&mut buf_in, &mut buf_out, &matches.free[0])?;
 
     Ok(())
 }
