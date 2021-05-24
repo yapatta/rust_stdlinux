@@ -14,7 +14,7 @@ use std::str::FromStr;
 
 const MAX_REQUEST_BODY_LENGTH: i64 = 10_000;
 const HTTP_MINOR_VERSION: u32 = 1;
-const SERVER_NAME: &str = "Rust Http";
+const SERVER_NAME: &str = "RustHTTP";
 const SERVER_VERSION: &str = "0.0.1";
 
 #[derive(Debug)]
@@ -27,8 +27,8 @@ impl std::error::Error for CustomError {}
 impl fmt::Display for CustomError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            CustomError::ParseError(s) => write!(f, "Parse Error: {}", s),
-            CustomError::TooLongRequestBodyError => write!(f, "Too Long RequestBody Error"),
+            CustomError::ParseError(s) => write!(f, "parse error on request line: {}", s),
+            CustomError::TooLongRequestBodyError => write!(f, "too long request body"),
         }
     }
 }
@@ -180,7 +180,11 @@ fn output_common_header_fields(
     write!(buf_out, "HTTP/1.{} {}\r\n", HTTP_MINOR_VERSION, status)?;
 
     let utc: DateTime<Utc> = Utc::now();
-    write!(buf_out, "Date: {}", utc.format("%a, %d %b %Y %H:%M:%S GMT"))?;
+    write!(
+        buf_out,
+        "Date: {}\r\n",
+        utc.format("%a, %d %b %Y %H:%M:%S GMT")
+    )?;
 
     write!(buf_out, "Server: {}/{}\r\n", SERVER_NAME, SERVER_VERSION)?;
     write!(buf_out, "Connection: close\r\n")?;
@@ -285,6 +289,9 @@ fn read_request_line(buf_in: &mut BufReader<io::StdinLock>, req: &mut HTTPReques
 
     let args: Vec<&str> = line.split_whitespace().collect();
 
+    if args.len() < 3 {
+        return Err(From::from(CustomError::ParseError(line)));
+    }
     let method = args[0].to_uppercase();
     let path = args[1].to_string();
     let protocol = args[2].to_string();
