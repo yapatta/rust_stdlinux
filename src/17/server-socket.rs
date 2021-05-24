@@ -4,6 +4,7 @@ use env_logger;
 use getopts;
 use getopts::Options;
 use libc::_exit;
+use log::{debug, error, info, warn};
 use nix::fcntl::{open, OFlag};
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal};
 use nix::sys::stat::Mode;
@@ -237,7 +238,7 @@ fn trap_signal(sig: Signal, handler: extern "C" fn(i32)) -> Result<()> {
 }
 
 extern "C" fn signal_exit(signum: i32) {
-    println!("exit by signal {}", signum);
+    warn!("exit by signal {}", signum);
 }
 
 extern "C" fn noop_handler(signum: i32) {}
@@ -363,6 +364,7 @@ fn become_daemon() -> Result<()> {
 fn listen_socket(port: String) -> Result<TcpListener> {
     let hostname = "localhost".to_string() + ":" + &port;
     if let Some(addr) = hostname.to_socket_addrs()?.next() {
+        // MEMO: portが1024未満の場合特権ポートと呼ばれroot権限が必要
         let listener = TcpListener::bind(addr)?;
 
         return Ok(listener);
@@ -465,6 +467,7 @@ fn main() -> Result<()> {
         env::set_var("RUST_LOG", "info");
         env_logger::init();
         become_daemon()?;
+        info!("start service");
     }
 
     server_main(listener, docroot)?;
