@@ -207,6 +207,19 @@ fn output_common_header_fields(
 
 fn install_signal_handlers() -> Result<()> {
     trap_signal(Signal::SIGPIPE, signal_exit)?;
+    detach_children()?;
+
+    Ok(())
+}
+
+fn detach_children() -> Result<()> {
+    let act = SigAction::new(
+        SigHandler::Handler(noop_handler),
+        SaFlags::SA_RESTART | SaFlags::SA_NOCLDWAIT,
+        SigSet::empty(),
+    );
+
+    unsafe { sigaction(Signal::SIGCHLD, &act) }?;
 
     Ok(())
 }
@@ -226,6 +239,8 @@ fn trap_signal(sig: Signal, handler: extern "C" fn(i32)) -> Result<()> {
 extern "C" fn signal_exit(signum: i32) {
     println!("exit by signal {}", signum);
 }
+
+extern "C" fn noop_handler(signum: i32) {}
 
 fn service(
     buf_in: &mut BufReader<&TcpStream>,
@@ -373,6 +388,8 @@ fn server_main(listner: TcpListener, docroot: String) -> Result<()> {
         }
     }
 }
+
+// TODO: chroot
 fn setup_environment(docroot: String, user: String, group: String) -> Result<()> {
     Ok(())
 }
@@ -433,14 +450,14 @@ fn main() -> Result<()> {
         exit(1);
     }
 
-    install_signal_handlers()?;
-
     let mut docroot = matches.free[0].clone();
 
     if do_chroot {
         setup_environment(docroot, user, group)?;
         docroot = "".to_string();
     }
+
+    install_signal_handlers()?;
 
     let listener = listen_socket(port)?;
 
