@@ -324,12 +324,11 @@ fn read_request_line(buf_in: &mut BufReader<io::StdinLock>, req: &mut HTTPReques
 fn become_daemon() -> Result<()> {
     chdir("/")?;
 
-    /*
-        let nio = open("/dev/null", OFlag::O_RDWR, Mode::S_IRWXU)?;
-        dup2(nio, 0)?;
-        dup2(nio, 1)?;
-        dup2(nio, 2)?;
-    */
+    let nio = open("/dev/null", OFlag::O_RDWR, Mode::S_IRWXU)?;
+    dup2(nio, 0)?;
+    dup2(nio, 1)?;
+    dup2(nio, 2)?;
+
     match unsafe { fork() }? {
         ForkResult::Parent { child, .. } => {
             let mut f = File::create("/home/yuzi/myprogramming/rust/rust_stdlinux/aba.txt")?;
