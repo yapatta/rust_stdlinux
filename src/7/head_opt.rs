@@ -24,6 +24,7 @@ fn main() {
         process::exit(0);
     }
 
+    // --line tmp でtmpがない場合既に19行目でpanicしている？
     let nlines: i32 = match matches.opt_str("n") {
         Some(n) => n.parse().unwrap(),
         None => {

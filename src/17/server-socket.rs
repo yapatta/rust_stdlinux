@@ -1,5 +1,7 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use getopts;
+use getopts::Options;
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal};
 use std::env;
 use std::fmt;
@@ -313,11 +315,60 @@ fn read_request_line(buf_in: &mut BufReader<io::StdinLock>, req: &mut HTTPReques
 
     Ok(())
 }
+
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() != 2 {
-        eprintln!("Usage: {} <docroot>", &args[0]);
+    let mut debug_mode = false;
+    let mut do_chroot = false;
+    let mut user: String = String::new();
+    let mut group: String = String::new();
+    let mut port: String = String::new();
+
+    let mut opts = Options::new();
+    opts.optflag("h", "help", "print this help menu");
+    opts.optflag("d", "debug", "debug mode");
+    opts.optflag("c", "chroot", "change root");
+    opts.optopt("u", "user", "user name", "NAME");
+    opts.optopt("g", "group", "group name", "GROUP");
+    opts.optopt("p", "port", "port number", "PORT");
+
+    let matches = opts.parse(&args[1..])?;
+
+    if matches.opt_present("h") {
+        println!(
+            "Usage: {} [--port=n] [--chroot --user=u --group=g] <docroot>",
+            &args[0]
+        );
+        return Ok(());
+    }
+
+    if matches.opt_present("d") {
+        debug_mode = true;
+    };
+
+    if matches.opt_present("c") {
+        do_chroot = true;
+    }
+
+    if let Some(u) = matches.opt_str("u") {
+        user = u;
+    }
+
+    if let Some(g) = matches.opt_str("g") {
+        group = g;
+    }
+
+    if let Some(p) = matches.opt_str("p") {
+        port = p;
+    }
+
+    if matches.free.is_empty() {
+        eprintln!(
+            "Usage: {} [--port=n] [--chroot --user=u --group=g] <docroot>",
+            &args[0]
+        );
+
         exit(1);
     }
 
