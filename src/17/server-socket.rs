@@ -12,7 +12,6 @@ use std::env;
 use std::fmt;
 use std::fs;
 use std::fs::File;
-use std::io;
 use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
 use std::net::{TcpListener, TcpStream, ToSocketAddrs};
@@ -120,7 +119,7 @@ impl FileInfo {
 // TODO: implement like OOP
 fn respond_to(
     req: &HTTPRequest,
-    buf_out: &mut BufWriter<TcpStream>,
+    buf_out: &mut BufWriter<&TcpStream>,
     docroot: String,
 ) -> Result<()> {
     if req.method == "GET" {
@@ -137,19 +136,19 @@ fn respond_to(
 }
 
 // TODO: 404
-fn not_found(req: &HTTPRequest, buf_out: &mut BufWriter<TcpStream>) -> Result<()> {
+fn not_found(req: &HTTPRequest, buf_out: &mut BufWriter<&TcpStream>) -> Result<()> {
     output_common_header_fields(req, buf_out, "404 Not Found")?;
     Ok(())
 }
 
 // TODO: 501
-fn not_implemented(req: &HTTPRequest, buf_out: &mut BufWriter<TcpStream>) -> Result<()> {
+fn not_implemented(req: &HTTPRequest, buf_out: &mut BufWriter<&TcpStream>) -> Result<()> {
     output_common_header_fields(req, buf_out, "501 Not Implemented")?;
     Ok(())
 }
 
 // TODO: 405
-fn method_not_allowed(req: &HTTPRequest, buf_out: &mut BufWriter<TcpStream>) -> Result<()> {
+fn method_not_allowed(req: &HTTPRequest, buf_out: &mut BufWriter<&TcpStream>) -> Result<()> {
     output_common_header_fields(req, buf_out, "405 Method Not Allowed")?;
     Ok(())
 }
@@ -157,7 +156,7 @@ fn method_not_allowed(req: &HTTPRequest, buf_out: &mut BufWriter<TcpStream>) -> 
 // TODO: implement like OOP
 fn do_file_response(
     req: &HTTPRequest,
-    buf_out: &mut BufWriter<TcpStream>,
+    buf_out: &mut BufWriter<&TcpStream>,
     docroot: String,
 ) -> Result<()> {
     let info = FileInfo::new(docroot, &req.path);
@@ -189,7 +188,7 @@ fn do_file_response(
 
 fn output_common_header_fields(
     _req: &HTTPRequest,
-    buf_out: &mut BufWriter<TcpStream>,
+    buf_out: &mut BufWriter<&TcpStream>,
     status: &str,
 ) -> Result<()> {
     write!(buf_out, "HTTP/1.{} {}\r\n", HTTP_MINOR_VERSION, status)?;
@@ -229,8 +228,8 @@ extern "C" fn signal_exit(signum: i32) {
 }
 
 fn service(
-    buf_in: &mut BufReader<TcpStream>,
-    buf_out: &mut BufWriter<TcpStream>,
+    buf_in: &mut BufReader<&TcpStream>,
+    buf_out: &mut BufWriter<&TcpStream>,
     path: &str,
 ) -> Result<()> {
     let req = read_request(buf_in)?;
@@ -238,7 +237,7 @@ fn service(
     Ok(())
 }
 
-fn read_request(buf_in: &mut BufReader<TcpStream>) -> Result<HTTPRequest> {
+fn read_request(buf_in: &mut BufReader<&TcpStream>) -> Result<HTTPRequest> {
     let mut req = HTTPRequest::new();
     read_request_line(buf_in, &mut req)?;
 
@@ -278,7 +277,7 @@ fn content_length(h: &Option<Box<HTTPHeaderField>>) -> Option<i64> {
     return None;
 }
 
-fn read_header_field(buf_in: &mut BufReader<TcpStream>) -> Option<HTTPHeaderField> {
+fn read_header_field(buf_in: &mut BufReader<&TcpStream>) -> Option<HTTPHeaderField> {
     let mut line = String::new();
     if let Some(n) = buf_in.read_line(&mut line).ok() {
         if n == 0 {
@@ -297,7 +296,7 @@ fn read_header_field(buf_in: &mut BufReader<TcpStream>) -> Option<HTTPHeaderFiel
     return None;
 }
 
-fn read_request_line(buf_in: &mut BufReader<TcpStream>, req: &mut HTTPRequest) -> Result<()> {
+fn read_request_line(buf_in: &mut BufReader<&TcpStream>, req: &mut HTTPRequest) -> Result<()> {
     let mut line = String::new();
     let _ = buf_in.read_line(&mut line)?;
     line.remove(line.len() - 1);
@@ -359,13 +358,13 @@ fn listen_socket(port: String) -> Result<TcpListener> {
 
 fn server_main(listner: TcpListener, docroot: String) -> Result<()> {
     loop {
-        let (socket, addr) = listner.accept()?;
+        let (socket, _addr) = listner.accept()?;
 
         match unsafe { fork() }? {
             ForkResult::Parent { child, .. } => {}
             ForkResult::Child => {
-                let mut ins = BufReader::new(socket);
-                let mut outs = BufWriter::new(socket);
+                let mut ins = BufReader::new(&socket);
+                let mut outs = BufWriter::new(&socket);
 
                 service(&mut ins, &mut outs, &docroot)?;
 
@@ -373,6 +372,9 @@ fn server_main(listner: TcpListener, docroot: String) -> Result<()> {
             }
         }
     }
+}
+fn setup_environment(docroot: String, user: String, group: String) -> Result<()> {
+    Ok(())
 }
 
 fn main() -> Result<()> {
@@ -432,11 +434,6 @@ fn main() -> Result<()> {
     }
 
     install_signal_handlers()?;
-
-    let stdin = io::stdin();
-    let stdout = io::stdout();
-    let mut buf_in = BufReader::new(stdin.lock());
-    let mut buf_out = BufWriter::new(stdout.lock());
 
     let mut docroot = matches.free[0].clone();
 
