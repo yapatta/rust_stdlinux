@@ -107,7 +107,11 @@ name = "daytime"
 path = "src/15/daytime.rs"
 
 [[bin]]
-name = "server"
+name = "server-io"
+path = "src/16/server.rs"
+
+[[bin]]
+name = "server-socket"
 path = "src/17/server.rs"
 
 [dependencies]
