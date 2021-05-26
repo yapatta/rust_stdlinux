@@ -4,13 +4,12 @@ use env_logger;
 use getopts;
 use getopts::Options;
 use libc::_exit;
-use log::{debug, error, info, warn};
+use log::{info, warn};
 use nix::fcntl::{open, OFlag};
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal};
 use nix::sys::stat::Mode;
 use nix::unistd::{
-    chdir, chroot, dup2, fork, getgid, getuid, initgroups, setgid, setsid, setuid, ForkResult, Gid,
-    Group, Uid, User,
+    chdir, chroot, dup2, fork, initgroups, setgid, setsid, setuid, ForkResult, Group, User,
 };
 use std::env;
 use std::ffi::CString;
@@ -244,7 +243,7 @@ extern "C" fn signal_exit(signum: i32) {
     warn!("exit by signal {}", signum);
 }
 
-extern "C" fn noop_handler(signum: i32) {}
+extern "C" fn noop_handler(_signum: i32) {}
 
 fn service(
     buf_in: &mut BufReader<&TcpStream>,
@@ -367,7 +366,11 @@ fn become_daemon() -> Result<()> {
 
 fn listen_socket(port: String) -> Result<TcpListener> {
     let hostname = "localhost".to_string() + ":" + &port;
-    if let Some(addr) = hostname.to_socket_addrs()?.next() {
+
+    // FIXME: Device or resource is busy
+    let mut addrs = hostname.to_socket_addrs()?;
+
+    if let Some(addr) = addrs.find(|x| (*x).is_ipv4()) {
         // MEMO: portが1024未満の場合特権ポートと呼ばれroot権限が必要
         let listener = TcpListener::bind(addr)?;
 
@@ -382,7 +385,7 @@ fn server_main(listner: TcpListener, docroot: String) -> Result<()> {
         let (socket, _addr) = listner.accept()?;
 
         match unsafe { fork() }? {
-            ForkResult::Parent { child, .. } => {}
+            ForkResult::Parent { child: _, .. } => {}
             ForkResult::Child => {
                 let mut ins = BufReader::new(&socket);
                 let mut outs = BufWriter::new(&socket);
@@ -396,15 +399,16 @@ fn server_main(listner: TcpListener, docroot: String) -> Result<()> {
 }
 
 // TODO: chroot
-fn setup_environment(root: String, user_name: String, group_name: String) -> Result<()> {
+fn setup_environment(root: &str, user_name: String, group_name: String) -> Result<()> {
     let cuser_name = CString::new(user_name.clone())?;
 
     if let Some(group) = Group::from_name(&group_name)? {
         setgid(group.gid)?;
+        // initgroupsにはroot権限が必要
         initgroups(&cuser_name, group.gid)?;
 
         if let Some(user) = User::from_name(&user_name)? {
-            chroot(&root[..])?;
+            chroot(root)?;
 
             setuid(user.uid)?;
 
@@ -474,7 +478,7 @@ fn main() -> Result<()> {
     let mut docroot = matches.free[0].clone();
 
     if do_chroot {
-        setup_environment(docroot, user, group)?;
+        setup_environment(&docroot, user, group)?;
         docroot = "".to_string();
     }
 
