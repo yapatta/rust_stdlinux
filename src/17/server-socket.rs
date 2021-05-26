@@ -8,8 +8,12 @@ use log::{debug, error, info, warn};
 use nix::fcntl::{open, OFlag};
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal};
 use nix::sys::stat::Mode;
-use nix::unistd::{chdir, dup2, fork, setsid, ForkResult};
+use nix::unistd::{
+    chdir, chroot, dup2, fork, getgid, getuid, initgroups, setgid, setsid, setuid, ForkResult, Gid,
+    Group, Uid, User,
+};
 use std::env;
+use std::ffi::CString;
 use std::fmt;
 use std::fs;
 use std::fs::File;
@@ -29,6 +33,7 @@ pub enum CustomError {
     ParseError(String),
     TooLongRequestBodyError,
     NoAddressError(String),
+    SetupEnvError,
 }
 
 impl std::error::Error for CustomError {}
@@ -38,6 +43,7 @@ impl fmt::Display for CustomError {
             CustomError::ParseError(s) => write!(f, "parse error on request line: {}", s),
             CustomError::TooLongRequestBodyError => write!(f, "too long request body"),
             CustomError::NoAddressError(s) => write!(f, "no address: {} does not exist", s),
+            CustomError::SetupEnvError => write!(f, "failed to set up environment"),
         }
     }
 }
@@ -390,8 +396,23 @@ fn server_main(listner: TcpListener, docroot: String) -> Result<()> {
 }
 
 // TODO: chroot
-fn setup_environment(docroot: String, user: String, group: String) -> Result<()> {
-    Ok(())
+fn setup_environment(root: String, user_name: String, group_name: String) -> Result<()> {
+    let cuser_name = CString::new(user_name.clone())?;
+
+    if let Some(group) = Group::from_name(&group_name)? {
+        setgid(group.gid)?;
+        initgroups(&cuser_name, group.gid)?;
+
+        if let Some(user) = User::from_name(&user_name)? {
+            chroot(&root[..])?;
+
+            setuid(user.uid)?;
+
+            return Ok(());
+        }
+    }
+
+    Err(From::from(CustomError::SetupEnvError))
 }
 
 fn main() -> Result<()> {
@@ -415,7 +436,7 @@ fn main() -> Result<()> {
 
     if matches.opt_present("h") {
         println!(
-            "Usage: {} [--port=p] [--chroot --user=u --group=g] <docroot>",
+            "Usage: {} [--port=p] [--chroot --user=u --group=g --debug] <docroot>",
             &args[0]
         );
         return Ok(());
@@ -443,7 +464,7 @@ fn main() -> Result<()> {
 
     if matches.free.is_empty() {
         eprintln!(
-            "Usage: {} [--port=p] [--chroot --user=u --group=g] <docroot>",
+            "Usage: {} [--port=p] [--chroot --user=u --group=g --debug] <docroot>",
             &args[0]
         );
 
